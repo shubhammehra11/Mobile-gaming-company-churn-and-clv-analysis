@@ -1,0 +1,100 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+data1 = readxl::read_excel("Assignment3HW3_Data.xlsx", sheet = "Data 1")
+data2 = readxl::read_excel("Assignment3HW3_Data.xlsx", sheet = "Data 2")
+data3 = readxl::read_excel("Assignment3HW3_Data.xlsx", sheet = "Data 3")
+```
+
+# Problem statement 1
+```{r}
+data1_joined = subset(data1, data1$`Joined?` == 1)
+data1_not_joined = subset(data1, data1$`Joined?` == 0)
+mean(data1_joined$`Month After` - data1_joined$`Month Before`) - mean(data1_not_joined$`Month After` - data1_not_joined$`Month Before`) 
+```
+
+# Problem statement 2
+```{r}
+library(caret)
+Joined = data2$`Joined?`
+Age = data2$`Customer Age with Firm at time of launching the online community`
+Churn = data2$`Churned at 3 months after launch of the online community`
+Spend = data2$`Average Spend Last 3 months of Life with the firm`
+logit2 = glm(Churn ~ Age + Spend + Joined, family = binomial(link = "logit"))
+summary(logit2)
+pred_proba = predict(logit2, newdata = data.frame(Age, Spend, Joined), type = "response")
+pred = ifelse(pred_proba > 0.5, 1, 0)
+#confusionMatrix(data = as.factor(pred), reference = as.factor(Churn), positive = "1")
+```
+
+```{r}
+logit2_inter = glm(Churn ~ Age + Spend + Joined + Spend:Age, family = binomial(link = "logit"))
+summary(logit2_inter)
+pred_proba = predict(logit2_inter, newdata = data.frame(Age, Spend, Joined, Spend*Age), type = "response")
+pred = ifelse(pred_proba > 0.5, 1, 0)
+#confusionMatrix(data = as.factor(pred), reference = as.factor(Churn), positive = "1")
+```
+
+Difference in avg retention:
+```{r}
+data2_joined = subset(data2, data2$`Joined?` == 1)
+data2_not_joined = subset(data2, data2$`Joined?` == 0)
+print("Revention, Joined:")
+(1 - mean(data2_joined$`Churned at 3 months after launch of the online community`))
+print("Revention, Not joined:")
+(1 - mean(data2_not_joined$`Churned at 3 months after launch of the online community`))
+print("Diff in Retention")
+(1 - mean(data2_joined$`Churned at 3 months after launch of the online community`)) - 
+  (1 - mean(data2_not_joined$`Churned at 3 months after launch of the online community`))
+```
+
+Average marginal effects
+```{r}
+margins::margins(logit2_inter)
+```
+
+
+# Problem statement 3
+```{r}
+data3$r = 1 - predict(logit2_inter, newdata = data.frame(Age, Spend, Joined, Spend*Age), type = "response")
+data3$CLV = 0.5 * 3 * data3$`Month After` / (1 - data3$r)
+data3_joined = subset(data3, data3$`Joined?` == 1)
+data3_not_joined = subset(data3, data3$`Joined?` == 0)
+print("Diff in mean CLV:")
+mean(data3_joined$CLV) - mean(data3_not_joined$CLV)
+t.test(data3_joined$CLV, data3_not_joined$CLV, alternative = "greater", var.equal = FALSE)
+```
+
+Normality test
+```{r}
+shapiro.test(data3_joined$CLV)
+shapiro.test(data3_not_joined$CLV)
+```
+
+# Problem statement 4
+```{r}
+Campaign = data3$`Campaign/Organic`
+logit4 = glm(Churn ~ Campaign + Age + Spend + Joined + Spend:Age + Campaign:Joined, family = binomial(link = "logit"))
+summary(logit4)
+```
+
+Campaign variable has no effect on retention
+
+Increase in Revenue for Campaign = 1
+```{r}
+data_campaign = subset(data3, data3$`Campaign/Organic` == 1)
+data_joined = subset(data_campaign, data_campaign$`Joined?` == 1)
+data_not_joined = subset(data_campaign, data_campaign$`Joined?` == 0)
+mean(data_joined$`Month After` - data_joined$`Month Before`) - mean(data_not_joined$`Month After` - data_not_joined$`Month Before`) 
+```
+
+Increase in Revenue for Campaign = 0
+```{r}
+data_campaign = subset(data3, data3$`Campaign/Organic` == 0)
+data_joined = subset(data_campaign, data_campaign$`Joined?` == 1)
+data_not_joined = subset(data_campaign, data_campaign$`Joined?` == 0)
+mean(data_joined$`Month After` - data_joined$`Month Before`) - mean(data_not_joined$`Month After` - data_not_joined$`Month Before`) 
+```
